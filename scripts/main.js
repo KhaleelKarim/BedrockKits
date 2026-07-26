@@ -154,6 +154,21 @@ function buildItem(spec) {
   // specific ItemStack and survives being dropped, stored in a chest, etc.
   // This is how the right-click handler later knows the item is special.
   if (spec.power) {
+
+    // Dynamic properties are how we tag an item as "special", but the API only
+    // allows them on NON-STACKABLE items. Stackable items merge in the
+    // inventory, which would destroy per-item data like remaining uses, so
+    // the API refuses outright. maxAmount is the item TYPE's stack limit
+    // (64 for a stick, 1 for a sword) - note this is unrelated to spec.count.
+    if (item.maxAmount > 1) {
+      throw new Error(
+        `"${spec.id}" is stackable (stacks to ${item.maxAmount}), so it can't ` +
+        `carry a power. Use a non-stackable base instead - anything with a ` +
+        `durability bar works: carrot_on_a_stick, fishing_rod, wooden_hoe, ` +
+        `trident, or any sword/armor piece.`
+      );
+    }
+
     if (!POWERS[spec.power]) {
       warnings.push(
         `unknown power "${spec.power}" - known powers: ${Object.keys(POWERS).join(", ")}`
@@ -184,7 +199,7 @@ function buildItem(spec) {
 
 system.afterEvents.scriptEventReceive.subscribe((event) => {
   if (event.id !== "kits:give") return;
-
+  console.log(`Event recieved, source entity is ${event.sourceEntity.name}`)
   // sourceEntity is whoever ran the command. It's undefined if the command
   // came from a command block or the server console, in which case we have
   // nobody to give the item to.
@@ -236,11 +251,11 @@ system.afterEvents.scriptEventReceive.subscribe((event) => {
 // Fires whenever a player right-clicks any entity while holding an item.
 // We check whether that item carries a "kit:power" tag, and if so, run it.
 // ============================================================================
-
-world.afterEvents.playerInteractWithEntity.subscribe((event) => {
+world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
   const player = event.player;
   const target = event.target;
   const usedItem = event.itemStack;
+  world.sendMessage(`Player: ${player}, Target: ${target}, Used Item: ${usedItem}`);
 
   // Bare-handed right-click, or right-clicking with a normal item.
   if (!usedItem) return;
@@ -357,8 +372,8 @@ system.run(() => {
 // Worn, named, enchanted sword:
 //   /scriptevent kits:give {"id":"minecraft:netherite_sword","name":"Ashbringer","enchants":{"sharpness":5,"unbreaking":3},"damage":1800}
 //
-// Three-use lightning stick:
-//   /scriptevent kits:give {"id":"minecraft:stick","name":"Thunder Rod","power":"lightning","uses":3}
+// Three-use lightning shears:
+//   /scriptevent kits:give {"id":"minecraft:shears","name":"Thunder Rod","power":"lightning","uses":3}
 //
 // Unlimited healing feather that stays forever:
 //   /scriptevent kits:give {"id":"minecraft:feather","name":"Mercy","power":"heal","uses":-1}
